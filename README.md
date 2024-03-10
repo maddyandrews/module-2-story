@@ -1,1 +1,2 @@
-# module-2-story
+# COMP 590: Module 2
+## Madelyn Andrews
