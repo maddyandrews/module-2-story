@@ -1,0 +1,235 @@
+<!-- Specifications for the file -->
+<!DOCTYPE html>
+
+<meta charset="utf-8">
+<script src="https://d3js.org/d3.v6.js"></script>
+<link rel="stylesheet" type="text/css" href="module-2-story.css">
+<body>
+    <div id="intro">
+        <h1>Module 2: Data Three Ways</h1>
+        <h2>Stardew Valley Crops: Which is Most Profitable?</h2>
+        <p>
+            Stardew Valley is a popular farming simulator game that can be played on PC or Nintendo Switch. 
+            The video game takes the player on a journey as they move to their grandfather's old farm to start a new life away 
+            from the city. The player can do a multitude of activities, including farming, fishing, foraging, mining, and 
+            befriending the people of Pelican Town. The main mechanic of the game, however, is running the farm and making a profit. 
+            Many aspects of the game are unlocked by farming and making enough revenue to complete quests. However, the complexity of 
+            farming can make it a bit difficult for beginners to know where to start. Crops in the game grow in different seasons, 
+            for different lengths of times, and in various quantities. Some crops also regrow without having to buy new seeds to plant.
+             With the vast size and complexity of the game in these farming mechanics alone, it can be difficult to know what the best 
+             way to earn a profit. By analyzing crop price data from Stardew Valley, the most profitable crop in each season can be 
+             determined to help individuals be the most successful in their farming endeavors.
+        </p>
+    </div>
+    <div id="data-source">
+        <h3>Source</h3>
+        <p>As Stardew Valley is a publicly-available game, data about the game and items within it is easily accessible. 
+            Several sources online list stats on in-game crops, including the purchase costs, sell prices, growth times, and season. 
+            I was able to find this dataset containing various profit analyses on the crops available in Stardew Valley via the 
+            Stardew Valley Wiki forum, cited below.
+        </p>
+        <a href="https://forums.stardewvalley.net/threads/complete-spreadsheet-of-crops-profit-including-jar-keg-and-cask-processing.298/">Stardew Valley Price Sheet</a>
+        <br>
+        <a href="https://stardewvalleywiki.com/">Stardew Valley Wiki Page</a>
+    </div>
+    <div id="d3-visual">
+        <h3>Crop Profit vs. Growth Time (D3)</h3>
+        <p>
+            First, we will analyze which crop is most profitable directly after harvesting (raw crops) in comparison to growth time. In early game, machines 
+            such as kegs and preserve jars, which process crops into a more profitable form, are not yet accessbile. Therefore, it can be useful 
+            to see the raw profit of crops for those who are unable to reap these farming bonuses at their point in the game. To analyze the base level profit, 
+            we will compare the earned profits from selling single, unprocessed crops. Factoring in growth time, we can see which crops yield the biggest profit
+            in the shortest amount of time.
+        </p>
+        <br>
+        <p>
+            A bubble chart analyzing raw profit vs growth time can be created in D3. Raw profit is plotted on the y-axis, and is also used to scale bubble radius. each
+            bubble is colored by season of crop growth. Only crops that grow within the first half of a season are analyzed, as crops that take longer than that aren't 
+            available in the early stages of the game.
+        </p>
+        <div id="chart1">
+            <script>
+                const margin = {top: 50, bottom: 75, right: 20, left: 50}
+                const width = 460 - margin.left - margin.right
+                const height = 400 - margin.top - margin.bottom
+            
+                const tooltip = d3.select("body")
+                                    .append("div")
+                                    .attr("class", "tooltip")
+                                    .style("opacity", 0);
+                // Append the SVG to the body of the page
+                const svg = d3.select("#chart1")
+                                .append("svg")
+                                .attr("width", width + margin.left + margin.right + 120)
+                                .attr("height", height + margin.top + margin.bottom)
+                                .append("g")
+                                .attr("transform", `translate(${margin.left}, ${margin.top})`)
+            
+                d3.csv("FormattedStardewValleyPriceSheet.csv", function(d) {
+                    return {
+                        item: d['Item'],
+                        profit: +d['Raw Profit'],
+                        season: d['Season'],
+                        time: +d['Growth Time']
+                    }
+                }).then(function(data) {
+                    const x = d3.scaleLinear()
+                                .domain([0, 14])
+                                .range([0, width - 100])
+            
+                    const y = d3.scaleLinear()
+                                .domain([-200, 1000])
+                                .range([height, 0])
+            
+                    const color = d3.scaleOrdinal()
+                                    .domain([data.map(d=>d.season)])
+                                    .range(d3.schemeSet2)
+            
+                    
+                    const size = d3.scaleLinear()
+                                    .domain([0, 1000])
+                                    .range([5, 50])
+            
+                    svg.append("g")
+                        .attr("transform", `translate(0, ${height})`)
+                        .call(d3.axisBottom(x))
+                        
+                    svg.append("g")
+                        .call(d3.axisLeft(y))
+
+                    svg.append("g")
+                        .selectAll("dot")
+                        .data(data)
+                        .join("circle")
+                        .attr("cx", function(d) {
+                            return x(d.time);
+                        })
+                        .attr("cy", function(d) {
+                            return y(d.profit);
+                        })
+                        .attr("r", function(d) {
+                            return size(d.profit)
+                        })
+                        .style("fill", function(d) {
+                            return color(d.season)
+                        })
+                        .on("mouseover", function (event, d) {
+                            tooltip.transition()
+                                .duration(200)
+                                .style("opacity", 0.9);
+                            tooltip.html(`<strong>${d.item}</strong><br>Raw Profit: ${d.profit}<br>Days: ${d.time}<br>Season: ${d.season}`)
+                                .style("left", (event.pageX) + "px")
+                                .style("top", (event.pageY - 10) + "px");
+                        })
+                        .on("mouseout", function (d) {
+                            tooltip.transition()
+                                .duration(500)
+                                .style("opacity", 0);
+                        });
+                        
+                        svg.append("text")
+                            .attr("x", (width + margin.left + margin.right - 120) / 2)
+                            .attr("y", 0 - (margin.top / 2))
+                            .attr("text-anchor", "middle")
+                            .style("font-size", "16px")
+                            .text("Stardew Valley Profit by Growth Time");
+                        
+                        // NOTE: Legend created using help from ChatGPT and other online sources
+                        const legend = svg.append("g")
+                            .attr("class", "legend")
+                            .attr("transform", `translate(${width}, 0)`);
+                        
+                        const legendItems = legend.selectAll(".legend-item")
+                            .data([...new Set(data.map(d => d.season))])
+                            .enter().append("g")
+                            .attr("class", "legend-item")
+                            .attr("transform", (d, i) => `translate(0, ${i * 20})`);
+
+                        legendItems.append("rect")
+                            .attr("width", 18)
+                            .attr("height", 18)
+                            .style("fill", color);
+
+                        legendItems.append("text")
+                            .attr("x", 24)
+                            .attr("y", 9)
+                            .attr("dy", ".25em")
+                            .style("text-anchor", "start")
+                            .text(d => d);
+
+                            svg.append("text")
+                                .attr("transform", `translate(${width / 2}, ${height + margin.top})`)
+                                .style("text-anchor", "middle")
+                                .text("Growth Time (days)");
+
+                            svg.append("text")
+                                .attr("transform", "rotate(-90)")
+                                .attr("y", 0 - margin.left)
+                                .attr("x", 0 - (height / 2))
+                                .attr("dy", "1em")
+                                .style("text-anchor", "middle")
+                                .text("Raw Profit (g)");
+                })
+            </script>
+        </div>
+    </div>
+    <p>
+        From this chart, we can see that Crystal Fruit yields the highest profit in the shortes amount of time, yielding 150g in no growth time. This crop can be found
+        in Winter. Starfruit is the highest yielding crop at 350g, taking 13 days to grow. This crop grows during Summer. In looking at this visualization, the most optimal
+        crop to earn profit the quickest can be quickly determined, which can be useful when just starting out the game.
+    </p>
+    <div id="tableau-visual">
+        <h3>Most Profitable Crop after Full Season of Harvest (Tableau)</h3>
+        <p>
+            Determining the most profitable crop after one harvest leaves out an important factor of Stardew Valley farming: crops can be harvested more than once in any given season. 
+            Certain crops can be regrown without buying more seeds, or yield more than one crop each harvest. These are not factors that were considered in the previous visualization, 
+            but impact the overall profitability of crops. To see the profit that will be earned throughout the season, we will use the Seasonal Profit Per Square metric, which 
+            describes how much one single crop will yield in profit over the 28-day season. This accounts for the fact that some items can produce multiple crops from one square, 
+            or can regrow after harvesting.
+        </p>
+        <div id="chart2">
+            <img src="RawCropsProfitBySeason.svg" width="800" height="800"></img>
+        </div>
+        <p>
+            From this visualization created with Tableau, we can see that the following crops are most profitable after a full season of growing:
+        </p>
+        <ul>
+            <li>Spring: Strawberry</li>
+            <li>Summer: Starfruit</li>
+            <li>Summer or Fall: Wheat</li>
+            <li>Fall: Sweet Gem Berry</li>
+            <li>Multi-Season: Ancient Fruit</li>
+            <li>Indoors: Cactus Fruit</li>
+            <li>Winter: Crystal Fruit</li>
+        </ul>
+        <p>
+            Furthermore, the most profitable crop overall considering just base selling price is Ancient Fruit, which is a multi-season fruit.
+        </p>
+    </div>
+    <div id="altair-visual">
+        <h3>Most Profitable Crop after Processing (D3)</h3>
+        <p>
+            Lastly, we will consider which processing method is best for each crop. As mentioned before, certain crops can be processed from their 
+            raw form into artisan goods by using **preserve jars** or **kegs**. This can increase the profit that a given crop brings a player in Stardew Valley. 
+            Building these machines, however, take a lot of resources, so they aren't typically used until more progress has been made in the game. 
+            Here, we will compare crops' profits before and after processing via preserve jar and keg to see which increases the profit most.
+        </p>
+        <div id="chart3">
+            <img width="800px" height="400px" src="FruitSeasonalProfitAfterProcessing.svg"></img>
+            <img width="800px" height="400px" src="VegetableSeasonalProfitAfterProcessing.svg"></img>
+        </div>
+        <p>
+            From these visualizations, one observation is that fruits are more profitable overall than vegetables. Sweet Gem Berry is the most profitable 
+            processed crop overall, which differs from raw profit (Ancient Fruit). Additionally, crops that return a negative profit when unprocessed are fairly profitable 
+            once processed by keg. This includes apples, apricots, cherries, oranges, peaches, and pomegranates. It is also interesting that vegetables become more profitable 
+            with jars over kegs, whereas fruits are the opposite. 
+        </p>
+    </div>
+    <div id="conclusion">
+        <h3>Conclusion</h3>
+        <p>
+            Overall, these observations show how to best maximize each crop in the game, as well as which crops can offer the largest profit in total. These visualizations help to
+            highlight the best crop for each season, as well as the best ways to profit off of each crop by using kegs or preserve jars.
+        </p>
+    </div>
+</body>
